@@ -2,7 +2,7 @@
 //   index.html, come-by/index.html  full pages (GitHub Pages, any static host)
 //   henstead.html, come-by.html     the same pages without a document wrapper (claude.ai artifacts)
 import { build } from 'esbuild';
-import { readFileSync, writeFileSync, mkdirSync, cpSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, cpSync, readdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 const ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cellipse cx='32' cy='36' rx='20' ry='25' fill='%23f6ead2' stroke='%231f2a2e' stroke-width='3'/%3E%3C/svg%3E";
@@ -38,4 +38,6 @@ for (const g of games) {
 }
 cpSync('assets/audio', 'dist/audio', { recursive: true });
 cpSync('assets/models', 'dist/models', { recursive: true });
+// Base64 copies of the binary model files, for hosts that serve only text and media (claude.ai artifacts).
+for (const f of readdirSync('dist/models')) if (/\.(bin|glb)$/.test(f)) writeFileSync(`dist/models/${f}.b64.txt`, readFileSync(`dist/models/${f}`).toString('base64'));
 writeFileSync('dist/.nojekyll', '');

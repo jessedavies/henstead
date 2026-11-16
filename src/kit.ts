@@ -13,6 +13,17 @@ export let farmerGltf: { scene: THREE.Group; clips: THREE.AnimationClip[] } | nu
 
 const PACKS = ['forest', 'village', 'plush', 'halloween', 'kitchen', 'resource', 'dog'];
 
+/** Binary files, with a base64 text copy as fallback for hosts that only serve text and media (claude.ai artifacts). */
+async function fetchBinary(url: string): Promise<ArrayBuffer> {
+  const r = await fetch(url).catch(() => null);
+  if (r && r.ok && !(r.headers.get('content-type') || '').includes('text/html')) return r.arrayBuffer();
+  const t = await fetch(url + '.b64.txt');
+  if (!t.ok) throw new Error('missing ' + url);
+  const s = atob((await t.text()).trim()), out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out.buffer;
+}
+
 function buildGeometry(buf: ArrayBuffer, e: Entry) {
   const g = new THREE.BufferGeometry();
   let o = e.o;
@@ -36,7 +47,7 @@ export async function loadKit(base: string, onProgress?: (f: number) => void) {
   await Promise.all(PACKS.map(async pack => {
     const [index, buf] = await Promise.all([
       fetch(base + pack + '.json').then(r => (r.ok ? r.json() : Promise.reject(new Error(pack)))),
-      fetch(base + pack + '.bin').then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(pack)))),
+      fetchBinary(base + pack + '.bin'),
     ]);
     let map: THREE.Texture | null = null;
     if (index.texture) {
@@ -50,7 +61,7 @@ export async function loadKit(base: string, onProgress?: (f: number) => void) {
     tick();
   }));
   const loader = new GLTFLoader();
-  const [ranger, moves, general] = await Promise.all(['Ranger.glb', 'Rig_Medium_MovementBasic.glb', 'Rig_Medium_General.glb'].map(f => loader.loadAsync(base + f).then(g => { tick(); return g; })));
+  const [ranger, moves, general] = await Promise.all(['Ranger.glb', 'Rig_Medium_MovementBasic.glb', 'Rig_Medium_General.glb'].map(f => fetchBinary(base + f).then(b => loader.parseAsync(b, base)).then(g => { tick(); return g; })));
   ranger.scene.traverse(o => {
     const m = o as THREE.Mesh;
     if (m.isMesh) {
