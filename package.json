@@ -1,0 +1,21 @@
+{
+  "name": "come-by",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.169.0",
+    "typescript": "^7.0.2",
+    "vite": "^5.4.21",
+    "vite-plugin-singlefile": "^2.3.4"
+  }
+}
