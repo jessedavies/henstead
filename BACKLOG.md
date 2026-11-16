@@ -39,16 +39,23 @@ Ideas parked while the core herding loop is tuned. Rough priority order within e
 
 # Henstead (cosy farm version): backlog
 
-Built: farmer with dog companion and four whistles, day and night with no fail state, laying rule (fed, housed, calm), feed patches, bush and tree clearing, free-form placement (fences, gates, coops, decorations), buying hens and a rooster, hatching, named hens with mood cards, gentle hawk, fox and snake, an 11-step to-do list, saving in the browser.
+Built: farmer (KayKit Ranger, animated) with a border collie and four whistles; day and night with no fail state; laying rule (fed, housed, calm); feed patches; clearing bushes, trees and rocks; free placement of fences, gates, coops and 10 decorations; buying hens and a rooster; hatching; named hens with mood cards and status icons; gentle hawk, fox and snake; an 11-step to-do list with an arrow and pulsing buttons; fence-aware pathfinding for hens; touch controls; pause menu; saving in the browser; KayKit models throughout except predators, scarecrow and eggs; real audio and music.
 
 ## Next
+- Real animals for the predators: fox, hawk and snake are still primitives. No free KayKit pack has them; neither do the paid ones, going by their descriptions.
+- Scarecrow and hay bale models (also missing from KayKit).
 - More to place: paths, ponds, troughs, nest boxes, sheds, trees and hedges you plant yourself.
 - Hen breeds with different looks and egg colours; chicks inherit from parents.
 - A reason to keep eggs beyond buying things: orders from neighbours, a market day.
-- Seasons and weather.
-- Hens path around fences properly (today they sidestep at random when blocked on the way home).
+- Seasons and weather (Forest EXTRA and Medieval Hexagon EXTRA have seasonal colour variants).
 - Feeders you fill by hand as an alternative to feed patches.
 - Rename hens; pick them up and carry them.
-- Farmer customisation.
-- Touch controls for build mode (rotate and cancel are keyboard-first today).
-- Save is per browser only; no export or cloud save.
+- Farmer customisation (KayKit Series 6 has two farmer characters).
+- Fence placement: drag to paint a run instead of one piece per tap.
+- Save export or cloud save (today it is per browser only).
+- Pause menu for Come By.
+
+## Not yet checked by a person
+- Balance and pacing (day length, prices, how fast hens get hungry).
+- The audio mix and music volume.
+- Performance and touch controls on a real iPad.

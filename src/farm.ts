@@ -241,7 +241,7 @@ function canPlace(t: string, r: number, x: number, z: number) {
     else if (line || il) { const other = line ? i : null; const rad = other ? DEFS[other.t].rad : d.rad; if (dist(x, z, i.x, i.z) < rad * 0.75) ok = false; }
     else if (dist(x, z, i.x, i.z) < (d.rad + DEFS[i.t].rad) * 0.85) ok = false;
   }
-  if (t === 'coop' && dist(x, z + 1.9, farmer.x, farmer.z) < 0.6) ok = false;
+  if (t === 'coop' && dist(x, z + 2.1, farmer.x, farmer.z) < 0.6) ok = false;
   return ok;
 }
 function removeItem(it: Item) {
@@ -823,7 +823,7 @@ function updateHens(dt: number) {
     if (ph !== 'day') { // evening: head for a coop with room
       if (!h.coop || !items.includes(h.coop)) {
         h.coop = null; let bd = 20;
-        for (const c of coops()) { const dd = dist(h.x, h.z, c.x, c.z + 1.9); if (dd < bd && coopCount(c) < COOP_CAP) { bd = dd; h.coop = c; } }
+        for (const c of coops()) { const dr0 = door(c), dd = dist(h.x, h.z, dr0.x, dr0.z); if (dd < bd && coopCount(c) < COOP_CAP) { bd = dd; h.coop = c; } }
       }
       if (h.coop) {
         const dr = door(h.coop), dd = dist(h.x, h.z, dr.x, dr.z);
