@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Cosy chicken farm game built with Three.js",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "dev": "node dev.mjs"
   },
   "keywords": [],
   "author": "",

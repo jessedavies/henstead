@@ -5,17 +5,25 @@ Two browser games sharing one codebase (Three.js, TypeScript, no game engine).
 - **Henstead** (`src/farm.ts`): a cosy chicken farm. Play a farmer with a border collie; tend hens, collect eggs, build and decorate. Mouse, keyboard and touch.
 - **Come By** (`src/game.ts`): a timed arcade herding game. Play the collie and pen the hens before dark.
 
-## Build
+## Run it locally
 
 ```bash
 npm install
 ```
 
 ```bash
-node build.mjs
+npm run dev
 ```
 
-Output goes to `dist/`: `index.html` is Henstead and `come-by/index.html` is Come By. Serve the folder over HTTP (for example `npx serve dist`) so the audio in `dist/audio/` loads; opening the files directly from disk runs the games without recorded sound. `henstead.html` and `come-by.html` are the same pages without a document wrapper, for hosts that add their own.
+Open http://localhost:5173/ (Come By is at `/come-by/`). Saving any file in `src/` or `assets/` rebuilds the games and reloads the page. The command also prints a network address for testing on a phone or tablet on the same Wi-Fi.
+
+## Build
+
+```bash
+npm run build
+```
+
+Output goes to `dist/`: `index.html` is Henstead and `come-by/index.html` is Come By. Serve the folder over HTTP (for example `npx serve dist`); opening the files directly from disk blocks the models and audio from loading. `henstead.html` and `come-by.html` are the same pages without a document wrapper, for hosts that add their own.
 
 ## Play online
 
