@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeDog, makeChicken, makeHawk, makeFox, makeCoop, makeFarmer, makeSnake, makeEgg, makePatch, makeDecor, fenceRun, makeGate, mat, makeMat, setSoftStyle, HEN_COLORS } from './models';
-import { sfx, initAudio, setMuted, isMuted, useSamples, setMusic, isMusicOn, setAmbience } from './audio';
+import { sfx, initAudio, setMuted, isMuted, useSamples, setMusic, isMusicOn, setAmbience, suspendAudio } from './audio';
 
 setSoftStyle();
 useSamples('audio/');
@@ -613,12 +613,14 @@ window.addEventListener('keydown', e => {
   keys.add(k);
   if (k === 'enter' && !$('overlay').hidden) return start(false);
   if (!G.started) return;
+  if (paused) { if (k === 'escape' || k === 'p') setPaused(false); return; }
+  if (k === 'p') { setPaused(true); return; }
   if (k === 'q') whistle('gather');
   else if (k === 'f') whistle('bring');
   else if (k === ' ') { e.preventDefault(); whistle('heel'); }
   else if (k === 'r') { if (build.open && build.sel && build.sel !== 'remove') { build.rot = (build.rot + 1) % 2; setGhost(); } else whistle('away'); }
   else if (k === 'b') toggleBuild();
-  else if (k === 'escape') { if (build.sel) selectBuild(build.sel); else if (build.open) toggleBuild(false); else hidePanel(); }
+  else if (k === 'escape') { if (build.sel) selectBuild(build.sel); else if (build.open) toggleBuild(false); else if (panelFor) hidePanel(); else setPaused(true); }
   else if (k === 'e') { const i = findInteract(farmer.x, farmer.z, 1.5, false); if (i) { farmer.target = null; farmer.pending = null; doInteract(i); } }
   else if (k === 'm') toggleMute();
 });
@@ -1119,7 +1121,34 @@ function start(fresh: boolean) {
 }
 $('ovBtn').addEventListener('click', () => start(false));
 $('ovNew').addEventListener('click', () => start(true));
-document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { save(); setPaused(true); } });
+
+// ---------- pause menu ----------
+let paused = false, eraseArmed = 0;
+const PHASE_NAME: Record<string, string> = { day: 'daytime', dusk: 'dusk', night: 'night' };
+function setPaused(on: boolean) {
+  if (!G.started || on === paused) return;
+  paused = on; keys.clear(); pointerDown = false; farmer.target = null; marker.visible = false;
+  suspendAudio(on);
+  $('pause').hidden = !on;
+  if (on) {
+    save();
+    setText('pauseInfo', `Day ${G.day}, ${PHASE_NAME[phase()]}. ${G.eggs} egg${G.eggs === 1 ? '' : 's'} in the basket, ${hens.length} bird${hens.length === 1 ? '' : 's'} on the farm.`);
+    $('help').hidden = true; resetErase();
+    ($('resume') as HTMLButtonElement).focus();
+  }
+}
+function resetErase() { eraseArmed = 0; $('newFarm').textContent = 'Start a new farm'; $('newFarm').classList.remove('armed'); }
+$('menuBtn').addEventListener('click', () => { initAudio(); setPaused(true); });
+$('resume').addEventListener('click', () => setPaused(false));
+$('helpBtn').addEventListener('click', () => { $('help').hidden = !$('help').hidden; });
+$('newFarm').addEventListener('click', () => {
+  const now = performance.now();
+  if (!eraseArmed || now - eraseArmed > 5000) { eraseArmed = now; $('newFarm').textContent = 'Erase this farm? Tap again'; $('newFarm').classList.add('armed'); return; }
+  G.started = false; // stops the save that would otherwise run as the page unloads
+  try { localStorage.removeItem(SAVE_KEY); } catch { /* storage unavailable */ }
+  location.reload();
+});
 
 // ---------- loop ----------
 function step(dt: number) {
@@ -1156,7 +1185,7 @@ function step(dt: number) {
 let last = performance.now();
 function frame(now: number) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
-  step(dt);
+  if (!paused) step(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }

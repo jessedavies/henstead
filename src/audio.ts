@@ -15,6 +15,9 @@ export function initAudio() {
   } catch { ctx = null; }
 }
 
+/** Freeze all sound while the game is paused. */
+export function suspendAudio(on: boolean) { if (!ctx) return; if (on) ctx.suspend(); else ctx.resume(); }
+
 export function setMuted(m: boolean) {
   muted = m;
   if (master) master.gain.value = m ? 0 : 0.5;

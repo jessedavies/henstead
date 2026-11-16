@@ -15,7 +15,16 @@ npm install
 node build.mjs
 ```
 
-Output goes to `dist/`: `farm.html` (Henstead) and `index.html` (Come By) are full pages; serve the folder over HTTP so the audio in `dist/audio/` loads. `henstead.html` and `come-by.html` are the same pages without a document wrapper, for hosts that add their own.
+Output goes to `dist/`: `index.html` is Henstead and `come-by/index.html` is Come By. Serve the folder over HTTP (for example `npx serve dist`) so the audio in `dist/audio/` loads; opening the files directly from disk runs the games without recorded sound. `henstead.html` and `come-by.html` are the same pages without a document wrapper, for hosts that add their own.
+
+## Play online
+
+Every push to `main` builds the games and deploys them to GitHub Pages (`.github/workflows/pages.yml`):
+
+- Henstead: https://jessedavies.github.io/henstead/
+- Come By: https://jessedavies.github.io/henstead/come-by/
+
+On an iPad, open the link in Safari and use Share, then Add to Home Screen, to play it full screen.
 
 ## Files
 

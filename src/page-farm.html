@@ -34,7 +34,6 @@ body { background: var(--sky); color: var(--paper); font-family: var(--body); ov
 .stat { text-align: center; }
 .stat b { display: block; font: 800 20px/1 var(--display); font-variant-numeric: tabular-nums; }
 .stat span { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-#mute, #music { pointer-events: auto; background: none; border: 1px solid rgba(255,255,255,0.25); color: var(--muted); font: 700 11px var(--body); border-radius: 8px; padding: 5px 8px; cursor: pointer; }
 #toast { align-self: center; background: var(--ink-soft); border-radius: 999px; padding: 8px 18px; font-weight: 700; opacity: 0; transform: translateY(-6px); transition: opacity .25s, transform .25s; text-align: center; max-width: 100%; }
 #toast.show { opacity: 1; transform: none; }
 .bar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
@@ -94,7 +93,6 @@ body { -webkit-touch-callout: none; overscroll-behavior: none; }
 .touch #palette { gap: 8px; padding: 10px; }
 .touch #palette button { min-height: 48px; padding: 8px 13px 6px; font-size: 15px; }
 .touch #palette button[data-b="rotate"] { display: none; }
-.touch #mute, .touch #music { min-height: 40px; padding: 8px 12px; font-size: 13px; }
 .touch #panelClose { width: 40px; height: 40px; font-size: 16px; }
 .touch #panel button[data-p] { min-height: 46px; padding: 8px 16px; }
 #bubble kbd { font: 800 13px var(--display); background: var(--ink); color: var(--paper); border-radius: 999px; width: 24px; height: 24px; display: grid; place-items: center; }
@@ -121,6 +119,27 @@ body { -webkit-touch-callout: none; overscroll-behavior: none; }
 .mood li.no::before { background: var(--dusk); }
 .card .credits { font-size: 11px; line-height: 1.4; color: var(--muted); }
 .btns { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+#menuBtn { pointer-events: auto; display: flex; align-items: center; gap: 7px; border: 0; border-radius: 10px; background: rgba(255,255,255,0.14); color: var(--paper); font: 800 14px var(--display); padding: 7px 11px; cursor: pointer; }
+#menuBtn .bars { width: 10px; height: 12px; border-left: 3px solid currentColor; border-right: 3px solid currentColor; box-sizing: border-box; }
+.touch #menuBtn { min-height: 44px; padding: 8px 14px; font-size: 16px; }
+#pause { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(20, 28, 32, 0.5); overflow: auto;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); }
+#pause .card { display: grid; gap: 12px; }
+#pause .card h1 { margin: 0; }
+#pause .sub { color: var(--muted); font-size: 13px; margin: 0; }
+#pause .menu { display: grid; gap: 8px; }
+#pause .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#pause button { border: 0; border-radius: 14px; min-height: 48px; padding: 10px 16px; background: rgba(255,255,255,0.1); color: var(--paper); font: 800 17px var(--display); cursor: pointer; }
+#pause button.primary { background: var(--wheat); color: var(--ink); font-size: 19px; }
+#pause button.danger { background: none; border: 1px solid rgba(255,255,255,0.22); color: var(--muted); font-size: 15px; min-height: 44px; }
+#pause button.danger.armed { background: var(--dusk); border-color: var(--dusk); color: var(--ink); }
+#help h2 { font: 800 18px var(--display); color: var(--wheat); margin: 6px 0 4px; }
+#help .keys { margin: 4px 0 8px; }
+#help ul { margin: 0; padding-left: 18px; }
+#help li { font-size: 14px; line-height: 1.45; margin-bottom: 4px; }
+.touch .keys.kb { display: none; }
+.touch .keys.tc { display: grid; }
+.keys.tc { display: none; }
 #ovNew { border: 1px solid rgba(255,255,255,0.3); border-radius: 14px; background: none; color: var(--paper); font: 800 16px var(--display); padding: 10px 16px; cursor: pointer; }
 </style>
 <canvas id="c"></canvas>
@@ -134,8 +153,7 @@ body { -webkit-touch-callout: none; overscroll-behavior: none; }
     <div class="chip stats">
       <div class="stat"><b id="eggs">0</b><span>Eggs</span></div>
       <div class="stat"><b id="flock">0/4</b><span>Flock</span></div>
-      <button id="mute" type="button">Sound on</button>
-      <button id="music" type="button">Music on</button>
+      <button id="menuBtn" type="button" aria-label="Pause and menu"><span class="bars"></span>Menu</button>
     </div>
   </div>
   <div class="bottom">
@@ -153,6 +171,45 @@ body { -webkit-touch-callout: none; overscroll-behavior: none; }
 </div>
 <div id="bubble"><kbd>E</kbd><span id="bubbleT"></span></div>
 <div id="panel" hidden><button id="panelClose" type="button" aria-label="Close">x</button><div id="panelBody"></div></div>
+<div id="pause" hidden>
+  <div class="card">
+    <h1>Paused</h1>
+    <p class="sub" id="pauseInfo"></p>
+    <div class="menu">
+      <button id="resume" type="button" class="primary">Resume</button>
+      <button id="helpBtn" type="button">How to play</button>
+      <div class="pair"><button id="mute" type="button">Sound on</button><button id="music" type="button">Music on</button></div>
+    </div>
+    <div id="help" hidden>
+      <h2>Controls</h2>
+      <div class="keys kb">
+        <kbd>WASD</kbd><span>Walk, or click the ground</span>
+        <kbd>E</kbd><span>Use what is in front of you, or click it</span>
+        <kbd>B</kbd><span>Build menu. R rotates, Esc puts it away</span>
+        <kbd>Q</kbd><span>Whistle Gather: the dog bunches the hens</span>
+        <kbd>F</kbd><span>Whistle Bring: the dog fetches them to you</span>
+        <kbd>Space</kbd><span>Whistle Heel: the dog comes back</span>
+        <kbd>R</kbd><span>Whistle Away: the dog chases off a predator</span>
+        <kbd>Esc</kbd><span>Pause. Scroll to zoom</span>
+      </div>
+      <div class="keys tc">
+        <kbd>Tap</kbd><span>Walk there, or use what you tapped</span>
+        <kbd>Drag</kbd><span>Steer the farmer</span>
+        <kbd>Pinch</kbd><span>Zoom</span>
+        <kbd>Build</kbd><span>Pick an item, drag it into place, tap Place</span>
+      </div>
+      <h2>How the farm works</h2>
+      <ul>
+        <li>A hen lays each morning if she was fed, slept in a coop and stayed calm. Tap a hen to see how she is doing.</li>
+        <li>Three hens can live on grass. More need feed patches or cleared land.</li>
+        <li>At dusk hens walk home to a coop with room. Leave a gate open for them.</li>
+        <li>Eggs are your money: spend them in the build menu.</li>
+      </ul>
+    </div>
+    <button id="newFarm" type="button" class="danger">Start a new farm</button>
+    <p class="sub">Your farm saves automatically in this browser.</p>
+  </div>
+</div>
 <div id="overlay">
   <div class="card">
     <h1 id="ovTitle">Henstead</h1>
