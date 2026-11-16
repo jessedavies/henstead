@@ -1,0 +1,103 @@
+{
+ "forest": {
+  "dir": "{KAYKIT}/KayKit_Forest_Nature_Pack_1.0_FREE/KayKit_Forest_Nature_Pack_1.0_FREE/Assets/gltf",
+  "models": [
+   "Tree_1_A_Color1",
+   "Tree_1_B_Color1",
+   "Tree_1_C_Color1",
+   "Tree_2_A_Color1",
+   "Tree_2_B_Color1",
+   "Tree_2_C_Color1",
+   "Tree_2_D_Color1",
+   "Tree_2_E_Color1",
+   "Tree_3_A_Color1",
+   "Tree_3_B_Color1",
+   "Tree_3_C_Color1",
+   "Tree_4_A_Color1",
+   "Tree_4_B_Color1",
+   "Tree_4_C_Color1",
+   "Bush_1_A_Color1",
+   "Bush_1_B_Color1",
+   "Bush_1_C_Color1",
+   "Bush_1_D_Color1",
+   "Bush_2_A_Color1",
+   "Bush_2_B_Color1",
+   "Bush_2_C_Color1",
+   "Bush_3_A_Color1",
+   "Bush_3_B_Color1",
+   "Bush_4_A_Color1",
+   "Bush_4_B_Color1",
+   "Bush_4_C_Color1",
+   "Rock_1_A_Color1",
+   "Rock_1_B_Color1",
+   "Rock_1_C_Color1",
+   "Rock_1_D_Color1",
+   "Rock_1_E_Color1",
+   "Rock_1_F_Color1",
+   "Grass_1_A_Color1",
+   "Grass_1_B_Color1",
+   "Grass_1_C_Color1",
+   "Grass_1_D_Color1",
+   "Grass_2_A_Color1",
+   "Grass_2_B_Color1",
+   "Grass_2_C_Color1",
+   "Grass_2_D_Color1"
+  ]
+ },
+ "village": {
+  "dir": "{KAYKIT}/kaykit-medieval-hexagon__Free/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf",
+  "models": [
+   "buildings/red/building_home_A_red",
+   "buildings/yellow/building_home_A_yellow",
+   "buildings/neutral/building_grain",
+   "buildings/red/building_well_red",
+   "buildings/neutral/fence_wood_straight",
+   "buildings/neutral/fence_wood_straight_gate",
+   "decoration/props/wheelbarrow",
+   "decoration/props/barrel",
+   "decoration/props/sack",
+   "decoration/props/crate_A_big"
+  ]
+ },
+ "plush": {
+  "dir": "{KAYKIT}/mixed-bag-1__Free/KayKit_Mixed_Bag_1_FREE/Assets/gltf",
+  "models": [
+   "chicken_plushie_A",
+   "chicken_plushie_B",
+   "flax_flower_A",
+   "flax_flower_B"
+  ]
+ },
+ "halloween": {
+  "dir": "{KAYKIT}/halloween-bits__Free/KayKit_HalloweenBits_1.0_FREE/Assets/gltf",
+  "models": [
+   "lantern_standing",
+   "post_lantern",
+   "bench",
+   "pumpkin_orange",
+   "pumpkin_orange_small"
+  ]
+ },
+ "kitchen": {
+  "dir": "{KAYKIT}/restaurant-bits__Free/KayKit_Restaurant_Bits_1.0_FREE/Assets/gltf",
+  "models": [
+   "crate_carrots",
+   "crate_lettuce"
+  ]
+ },
+ "resource": {
+  "dir": "{KAYKIT}/KayKit_ResourceBits_1.0_FREE/KayKit_ResourceBits_1.0_FREE/Assets/gltf",
+  "models": [
+   "Wood_Log_Stack"
+  ]
+ },
+ "dog": {
+  "dir": "{KAYKIT}/kay-kit-mini-game-variety-pack__KayKit_Mini-Game_Variety_Pack_1.2/Models/Characters/Dog/gltf",
+  "models": [
+   "character_dog"
+  ],
+  "split": [
+   "character_dog"
+  ]
+ }
+}

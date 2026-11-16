@@ -28,7 +28,9 @@ On an iPad, open the link in Safari and use Share, then Add to Home Screen, to p
 
 ## Files
 
-- `src/models.ts`: all 3D models, built from primitives.
+- `src/kit.ts`, `src/kitmodels.ts`: loads the KayKit models (CC0) and builds the farm's pieces from them.
+- `src/models.ts`: models built from primitives (Come By, and the fox, hawk, snake, scarecrow and eggs in Henstead).
+- `assets/models/`: packed KayKit models. To change which models are used, unzip the KayKit packs into a folder and run `KAYKIT_DIR=that/folder python3 tools/pack_models.py tools/models.json assets/models`.
 - `src/audio.ts`: synthesised sounds plus optional recorded samples.
 - `assets/audio/`: recorded samples and music. See `CREDITS.md` for sources and licences.
 - `BACKLOG.md`: ideas not yet built, for both games.

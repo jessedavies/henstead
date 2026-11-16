@@ -24,7 +24,7 @@ ${page}</body>
 `;
 
 const games = [
-  { entry: 'src/farm.ts', page: 'src/page-farm.html', fragment: 'dist/henstead.html', full: 'dist/index.html' },
+  { entry: 'src/henstead.ts', page: 'src/page-farm.html', fragment: 'dist/henstead.html', full: 'dist/index.html' },
   { entry: 'src/game.ts', page: 'src/page.html', fragment: 'dist/come-by.html', full: 'dist/come-by/index.html' },
 ];
 for (const g of games) {
@@ -37,4 +37,5 @@ for (const g of games) {
   console.log('built', g.full, (page.length / 1024) | 0, 'KB');
 }
 cpSync('assets/audio', 'dist/audio', { recursive: true });
+cpSync('assets/models', 'dist/models', { recursive: true });
 writeFileSync('dist/.nojekyll', '');

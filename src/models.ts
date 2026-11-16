@@ -3,13 +3,11 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 
 // Every model is built from flat-shaded primitives; swap for authored meshes later.
 let SOFT = false, DET = 0;
-let ramp: THREE.DataTexture | null = null;
 /** Rounded shapes with banded shading, used by the cosy farm game. */
 export function setSoftStyle() { SOFT = true; DET = 2; }
 export function makeMat(color: number): any {
   if (!SOFT) return new THREE.MeshLambertMaterial({ color, flatShading: true });
-  if (!ramp) { ramp = new THREE.DataTexture(new Uint8Array([165, 210, 240, 255]), 4, 1, THREE.RedFormat); ramp.minFilter = ramp.magFilter = THREE.NearestFilter; ramp.needsUpdate = true; }
-  return new THREE.MeshToonMaterial({ color, gradientMap: ramp });
+  return new THREE.MeshLambertMaterial({ color }); // smooth shading, to sit beside the KayKit models
 }
 const mats = new Map<number, any>();
 export function mat(color: number) {

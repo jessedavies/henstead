@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { makeDog, makeChicken, makeHawk, makeFox, makeCoop, makeFarmer, makeSnake, makeEgg, makePatch, makeDecor, fenceRun, makeGate, mat, makeMat, setSoftStyle, HEN_COLORS } from './models';
+import { makeHawk, makeFox, makeSnake, makeEgg, mat, setSoftStyle, HEN_COLORS } from './models';
+import { makeDog, makeChicken, makeFarmer, makeCoop, makePatch, makeDecor, makeFence, makeGateItem, treeModel, bushModel, modelWidth, ROCKS, PEBBLES, GRASS } from './kitmodels';
+import * as kit from './kit';
 import { sfx, initAudio, setMuted, isMuted, useSamples, setMusic, isMusicOn, setAmbience, suspendAudio } from './audio';
 
 setSoftStyle();
@@ -32,17 +34,22 @@ function vnoise(x: number, z: number) {
 const DAY = 150, DUSK = 40, NIGHT = 15, CYCLE = DAY + DUSK + NIGHT;
 const WORLD_R = 32, COOP_CAP = 4;
 const NAMES = ['Mabel', 'Dot', 'Clementine', 'Peggy', 'Hazel', 'Biscuit', 'Nora', 'Pip', 'Marigold', 'Olive', 'Betty', 'Juniper', 'Flossie', 'Wren', 'Dolly', 'Maple', 'Tilly', 'Ginger', 'Poppy', 'Ethel', 'Honey', 'Myrtle', 'Fern', 'Bramble'];
-const DEFS: Record<string, { name: string; cost: number; rad: number; decor?: boolean }> = {
+// solid: blocks walking. 'hay' is the log pile (kept as the saved id).
+const DEFS: Record<string, { name: string; cost: number; rad: number; decor?: boolean; solid?: boolean }> = {
   fence: { name: 'Fence', cost: 0, rad: 0 }, gate: { name: 'Gate', cost: 1, rad: 0 },
   patch: { name: 'Feed patch', cost: 2, rad: 1.3 }, coop: { name: 'Coop', cost: 12, rad: 2.2 },
-  flowers: { name: 'Flowers', cost: 1, rad: 0.35, decor: true }, hay: { name: 'Hay bale', cost: 1, rad: 0.7, decor: true },
-  lantern: { name: 'Lantern', cost: 2, rad: 0.3, decor: true }, scarecrow: { name: 'Scarecrow', cost: 4, rad: 0.4, decor: true },
+  flowers: { name: 'Flowers', cost: 1, rad: 0.35, decor: true }, hay: { name: 'Log pile', cost: 1, rad: 0.75, decor: true, solid: true },
+  lantern: { name: 'Lantern', cost: 2, rad: 0.3, decor: true }, scarecrow: { name: 'Scarecrow', cost: 4, rad: 0.4, decor: true, solid: true },
+  bench: { name: 'Bench', cost: 2, rad: 0.8, decor: true, solid: true }, barrel: { name: 'Barrel', cost: 1, rad: 0.45, decor: true, solid: true },
+  pumpkins: { name: 'Pumpkins', cost: 1, rad: 0.5, decor: true }, crate: { name: 'Veg crate', cost: 2, rad: 0.6, decor: true, solid: true },
+  wheelbarrow: { name: 'Wheelbarrow', cost: 3, rad: 0.7, decor: true, solid: true }, well: { name: 'Well', cost: 6, rad: 1.0, decor: true, solid: true },
 };
 const HEN_COST = 5, ROO_COST = 8;
 
 // ---------- renderer / scene ----------
 const canvas = $('c') as HTMLCanvasElement;
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+// Anti-aliasing costs a lot on high-density screens (iPad) and shows little there.
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: window.devicePixelRatio < 2 });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -51,7 +58,7 @@ scene.background = new THREE.Color(0xcfe6e4);
 scene.fog = new THREE.Fog(0xcfe6e4, 70, 120);
 const camera = new THREE.PerspectiveCamera(28, 1, 1, 220);
 const camTarget = new THREE.Vector3(0, 0, -1);
-const CAM_OFF = new THREE.Vector3(0, 36, 31);
+const CAM_OFF = new THREE.Vector3(0, 25, 27);
 let zoom = 0.85;
 const hemi = new THREE.HemisphereLight(0xdff0ff, 0x8a9a6a, 1.0);
 scene.add(hemi);
@@ -73,7 +80,7 @@ window.addEventListener('resize', resize);
 resize();
 
 // ---------- landscape ----------
-type Obstacle = { id: number; x: number; z: number; r: number; alive: boolean; bush: boolean; i: number; fi: number; round: boolean; s: number; rot: number; shake: number };
+type Obstacle = { id: number; x: number; z: number; r: number; alive: boolean; bush: boolean; rock: boolean; im: THREE.InstancedMesh; i: number; k: number; rot: number; shake: number };
 const obstacles: Obstacle[] = [];
 const grid = new Map<number, Obstacle[]>();
 const gkey = (x: number, z: number) => Math.floor((x + 64) / 4) * 64 + Math.floor((z + 64) / 4);
@@ -96,8 +103,13 @@ const edgeDist = (x: number, z: number) => Math.hypot(x, z * 1.05) + (vnoise(x *
   ground.receiveShadow = true; scene.add(ground);
 }
 const tm4 = new THREE.Matrix4(), tq = new THREE.Quaternion(), tv = new THREE.Vector3(), ts = new THREE.Vector3();
-const veg = (() => {
-  const trees: { x: number; z: number; s: number; round: boolean }[] = [], bushes: { x: number; z: number; s: number }[] = [];
+// Trees between the camera and the farmer shrink so they never hide the farm.
+type Standing = { im: THREE.InstancedMesh; i: number; x: number; z: number; k: number; rot: number; f: number; o?: Obstacle };
+const standing: Standing[] = [];
+// The random calls below keep the same order as earlier versions, so saved farms clear the same trees and bushes.
+(() => {
+  type Place = { x: number; z: number; s: number; round?: boolean; model?: string };
+  const trees: Place[] = [], bushes: Place[] = [];
   for (let gx = -56; gx <= 56; gx += 2.3) for (let gz = -56; gz <= 56; gz += 2.3) {
     const x = gx + (wrand() - 0.5) * 1.7, z = gz + (wrand() - 0.5) * 1.7, d = edgeDist(x, z), r = wrand();
     if (d < 14) continue;
@@ -105,71 +117,78 @@ const veg = (() => {
     else if (r < 0.72) trees.push({ x, z, s: 0.85 + wrand() * 0.6, round: wrand() < 0.3 });
     else if (r < 0.84) bushes.push({ x, z, s: 0.8 + wrand() * 0.6 });
   }
-  const c = new THREE.Color();
-  const inst = (geo: THREE.BufferGeometry, color: number, n: number) => {
-    const m = new THREE.InstancedMesh(geo, makeMat(color), n);
-    m.castShadow = true; m.receiveShadow = true; scene.add(m); return m;
-  };
-  const trunk = inst(new THREE.CylinderGeometry(0.2, 0.3, 1.4, 10).translate(0, 0.7, 0), 0x9a7350, trees.length);
-  const np = trees.filter(t => !t.round).length;
-  const cone1 = inst(new THREE.ConeGeometry(1.35, 2.5, 12).translate(0, 2.3, 0), 0xffffff, np);
-  const cone2 = inst(new THREE.ConeGeometry(0.95, 2.0, 12).translate(0, 3.6, 0), 0xffffff, np);
-  const ball = inst(new THREE.IcosahedronGeometry(1.5, 2).translate(0, 2.6, 0), 0xffffff, trees.length - np);
-  let pi = 0, ri = 0;
-  trees.forEach((t, i) => {
-    tq.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, wrand() * 6.28);
-    tm4.compose(tv.set(t.x, 0, t.z), tq, ts.setScalar(t.s));
-    trunk.setMatrixAt(i, tm4);
-    c.setHex([0x5fa46a, 0x6fb56a, 0x4f9466, 0x7fbf6f][(wrand() * 4) | 0]);
-    let fi: number;
-    if (t.round) { c.offsetHSL(0.02, 0, 0.04); fi = ri; ball.setMatrixAt(ri, tm4); ball.setColorAt(ri++, c); }
-    else { fi = pi; cone1.setMatrixAt(pi, tm4); cone1.setColorAt(pi, c); cone2.setMatrixAt(pi, tm4); cone2.setColorAt(pi++, c.offsetHSL(0, 0, 0.03)); }
-    if (Math.hypot(t.x, t.z) < 37) addObstacle({ id: 0, x: t.x, z: t.z, r: 0.55 * t.s, alive: true, bush: false, i, fi, round: t.round, s: t.s, rot: 0, shake: 0 });
-  });
-  const bm = inst(new THREE.IcosahedronGeometry(0.85, 2), 0xffffff, bushes.length * 2);
-  bushes.forEach((b, i) => {
-    c.setHex([0x8fc65a, 0x9ed066, 0x7fb850][(wrand() * 3) | 0]);
-    bm.setColorAt(i * 2, c); bm.setColorAt(i * 2 + 1, c.offsetHSL(0, 0, 0.04));
-    const o: Obstacle = { id: 0, x: b.x, z: b.z, r: 0.85 * b.s, alive: true, bush: true, i, fi: 0, round: false, s: b.s, rot: wrand() * 6.28, shake: 0 };
-    if (Math.hypot(b.x, b.z) < 37) addObstacle(o);
-    setBush(bm, o, 1);
-  });
-  return { trunk, cone1, cone2, ball, bm };
-})();
-{ // grass tufts and wild flowers give the lawn some texture
-  const tuft = new THREE.InstancedMesh(new THREE.ConeGeometry(0.08, 0.26, 5).translate(0, 0.13, 0), new THREE.MeshLambertMaterial({ color: 0xffffff }), 900);
-  const bloom = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.08, 1), new THREE.MeshLambertMaterial({ color: 0xffffff }), 220);
-  const c = new THREE.Color();
-  for (let i = 0; i < 900; i++) {
-    const a = wrand() * 6.283, r = Math.sqrt(wrand()) * 34, x = Math.cos(a) * r, z = Math.sin(a) * r;
-    tq.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, a); tm4.compose(tv.set(x, 0, z), tq, ts.setScalar(0.7 + wrand() * 0.8));
-    tuft.setMatrixAt(i, tm4); tuft.setColorAt(i, c.setHex(wrand() < 0.5 ? 0xa2cc72 : 0xc4e492));
-    if (i < 220) { tm4.compose(tv.set(x + 0.4, 0.1, z + 0.3), tq, ts.setScalar(0.8 + wrand() * 0.6)); bloom.setMatrixAt(i, tm4); bloom.setColorAt(i, c.setHex([0xfff6e0, 0xf7d66a, 0xf2a0b0, 0xc9b2f0][(wrand() * 4) | 0])); }
+  const rots = trees.map(t => { const rot = wrand() * 6.28; t.model = treeModel(wrand(), edgeDist(t.x, t.z) < 26); return rot; });
+  const brot = bushes.map(b => { b.model = bushModel(wrand()); return wrand() * 6.28; });
+  const rrand = mulberry(SEED ^ 0x5eed), rocks: Place[] = [];
+  for (let n = 0; n < 400 && rocks.length < 26; n++) {
+    const a = rrand() * 6.283, rr = 14 + rrand() * 16, x = Math.cos(a) * rr, z = Math.sin(a) * rr * 0.95;
+    if (edgeDist(x, z) < 15.5 || bushes.some(b => dist(b.x, b.z, x, z) < 2.4) || trees.some(t => dist(t.x, t.z, x, z) < 2) || rocks.some(q => dist(q.x, q.z, x, z) < 3)) continue;
+    rocks.push({ x, z, s: 0.8 + rrand() * 0.5, model: ROCKS[(rrand() * ROCKS.length) | 0] });
   }
-  scene.add(tuft, bloom);
+  // One instanced mesh per model per map tile, so tiles off screen are not drawn at all.
+  const TILE = 22, key = (p: Place) => p.model + '|' + Math.floor(p.x / TILE) + ',' + Math.floor(p.z / TILE);
+  const groups = new Map<string, Place[]>();
+  for (const p of [...trees, ...bushes, ...rocks]) { const k = key(p); if (!groups.has(k)) groups.set(k, []); groups.get(k)!.push(p); }
+  const imOf = new Map<Place, THREE.InstancedMesh>(), slot = new Map<Place, number>(), all: THREE.InstancedMesh[] = [];
+  for (const [k, list] of groups) { const im = kit.instanced(k.split('|')[0], list.length); scene.add(im); all.push(im); list.forEach((p, i) => { slot.set(p, i); imOf.set(p, im); }); }
+  const put = (p: Place, k: number, rot: number) => { tq.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, rot); tm4.compose(tv.set(p.x, 0, p.z), tq, ts.setScalar(k)); imOf.get(p)!.setMatrixAt(slot.get(p)!, tm4); };
+  trees.forEach((t, i) => {
+    const k = t.s * 0.82;
+    put(t, k, rots[i]);
+    const st: Standing = { im: imOf.get(t)!, i: slot.get(t)!, x: t.x, z: t.z, k, rot: rots[i], f: 1 };
+    standing.push(st);
+    if (Math.hypot(t.x, t.z) < 37) { const o: Obstacle = { id: 0, x: t.x, z: t.z, r: 0.55 * t.s, alive: true, bush: false, rock: false, im: st.im, i: st.i, k, rot: rots[i], shake: 0 }; addObstacle(o); st.o = o; }
+  });
+  bushes.forEach((b, i) => {
+    const r = 0.85 * b.s, k = (2 * r * 1.1) / modelWidth(b.model!);
+    put(b, k, brot[i]);
+    if (Math.hypot(b.x, b.z) < 37) addObstacle({ id: 0, x: b.x, z: b.z, r, alive: true, bush: true, rock: false, im: imOf.get(b)!, i: slot.get(b)!, k, rot: brot[i], shake: 0 });
+  });
+  rocks.forEach(q => {
+    const rot = rrand() * 6.28, k = q.s * 1.2;
+    put(q, k, rot);
+    addObstacle({ id: 0, x: q.x, z: q.z, r: 0.5 * k, alive: true, bush: false, rock: true, im: imOf.get(q)!, i: slot.get(q)!, k, rot, shake: 0 });
+  });
+  for (const im of all) { im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); }
+})();
+{ // grass tufts, pebbles and wild flowers give the lawn some texture
+  const per = 240, tufts = GRASS.map(g => { const m = kit.instanced(g, per); m.castShadow = false; scene.add(m); return m; });
+  const pebbles = PEBBLES.map(g => { const m = kit.instanced(g, 14); scene.add(m); return m; });
+  const bloom = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.08, 1), new THREE.MeshLambertMaterial({ color: 0xffffff }), 160);
+  const c = new THREE.Color();
+  for (let i = 0; i < per * GRASS.length; i++) {
+    const a = wrand() * 6.283, r = Math.sqrt(wrand()) * 34, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    tq.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, a); tm4.compose(tv.set(x, 0, z), tq, ts.setScalar(0.45 + wrand() * 0.45));
+    tufts[i % GRASS.length].setMatrixAt((i / GRASS.length) | 0, tm4);
+    if (i < 160) { tm4.compose(tv.set(x + 0.4, 0.1, z + 0.3), tq, ts.setScalar(0.8 + wrand() * 0.6)); bloom.setMatrixAt(i, tm4); bloom.setColorAt(i, c.setHex([0xfff6e0, 0xf7d66a, 0xf2a0b0, 0xc9b2f0][(wrand() * 4) | 0])); }
+    if (i < 42) { tm4.compose(tv.set(x - 0.6, 0, z - 0.5), tq, ts.setScalar(0.5 + wrand() * 0.6)); pebbles[i % 3].setMatrixAt((i / 3) | 0, tm4); }
+  }
+  scene.add(bloom);
 }
-function setBush(bm: THREE.InstancedMesh, o: Obstacle, k: number) {
-  tq.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, o.rot);
-  const wob = o.shake > 0 ? Math.sin(o.shake * 40) * 0.08 : 0;
-  tm4.compose(tv.set(o.x + wob, 0.5 * o.s * k, o.z), tq, ts.set(o.s * k, o.s * 0.75 * k, o.s * k));
-  bm.setMatrixAt(o.i * 2, tm4);
-  tm4.compose(tv.set(o.x + Math.cos(o.rot) * 0.6 * o.s - wob, 0.38 * o.s * k, o.z + Math.sin(o.rot) * 0.6 * o.s), tq, ts.set(o.s * 0.62 * k, o.s * 0.5 * k, o.s * 0.62 * k));
-  bm.setMatrixAt(o.i * 2 + 1, tm4);
-  bm.instanceMatrix.needsUpdate = true;
+function fadeTrees(dt: number) {
+  for (const t of standing) {
+    const dx = t.x - camTarget.x, dz = t.z - camTarget.z;
+    const want = dz > 1 && dz < 16 && Math.abs(dx) < 5 + dz * 0.4 ? 0.1 : 1;
+    if (Math.abs(want - t.f) < 0.005) continue;
+    t.f += (want - t.f) * Math.min(1, dt * 5);
+    if (t.o && (!t.o.alive || t.o.shake > 0)) continue;
+    tq.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, t.rot); tm4.compose(tv.set(t.x, 0, t.z), tq, ts.setScalar(t.k * t.f));
+    t.im.setMatrixAt(t.i, tm4); t.im.instanceMatrix.needsUpdate = true;
+  }
 }
-function setTree(o: Obstacle, k: number, lean = 0) {
-  tq.setFromAxisAngle(tv.set(0, 0, 1), lean);
-  tm4.compose(tv.set(o.x, 0, o.z), tq, ts.setScalar(o.s * k));
-  veg.trunk.setMatrixAt(o.i, tm4); veg.trunk.instanceMatrix.needsUpdate = true;
-  if (o.round) { veg.ball.setMatrixAt(o.fi, tm4); veg.ball.instanceMatrix.needsUpdate = true; }
-  else { veg.cone1.setMatrixAt(o.fi, tm4); veg.cone2.setMatrixAt(o.fi, tm4); veg.cone1.instanceMatrix.needsUpdate = veg.cone2.instanceMatrix.needsUpdate = true; }
+/** k: size factor (1 = full), lean: tilt while being chopped. */
+function setObs(o: Obstacle, k: number, lean = 0) {
+  const wob = o.shake > 0 && !o.alive ? 0 : o.shake > 0 ? Math.sin(o.shake * 40) * 0.06 : 0;
+  tq.setFromAxisAngle(tv.set(0, 0, 1), lean); const q2 = new THREE.Quaternion().setFromAxisAngle(THREE.Object3D.DEFAULT_UP, o.rot); tq.multiply(q2);
+  tm4.compose(tv.set(o.x + wob, 0, o.z), tq, ts.setScalar(o.k * k));
+  o.im.setMatrixAt(o.i, tm4); o.im.instanceMatrix.needsUpdate = true;
 }
 function clearObstacle(o: Obstacle, quiet = false) {
   o.alive = false; navDirty();
-  if (o.bush) setBush(veg.bm, o, 0); else setTree(o, 0);
+  setObs(o, 0);
   const patch = new THREE.Mesh(new THREE.CircleGeometry(o.r + 0.6, 7).rotateX(-Math.PI / 2), mat(0xa9c474));
   patch.position.set(o.x, 0.02, o.z); patch.rotation.y = o.id; patch.receiveShadow = true; scene.add(patch);
-  if (!quiet) { G.cleared++; sfx.pop(); puff(o.x, 0.6, o.z, o.bush ? 0x7fa650 : 0x5d8a4e, o.bush ? 12 : 20, 4); }
+  if (!quiet) { G.cleared++; sfx.pop(); puff(o.x, 0.6, o.z, o.rock ? 0x9aa3a8 : o.bush ? 0x7fbf4a : 0x6fae4a, o.bush ? 12 : 20, 4); }
 }
 
 // ---------- placed items ----------
@@ -177,24 +196,18 @@ type Item = { t: string; x: number; z: number; r: number; mesh: THREE.Group; ope
 const items: Item[] = [];
 const coops = () => items.filter(i => i.t === 'coop');
 const segOf = (i: Item) => (i.r ? [i.x, i.z - 1, i.x, i.z + 1] : [i.x - 1, i.z, i.x + 1, i.z]);
-const door = (c: Item) => ({ x: c.x, z: c.z + 1.9 });
+const door = (c: Item) => ({ x: c.x, z: c.z + 2.1 });
 
 function buildMesh(t: string, r: number): { mesh: THREE.Group; extra?: any } {
-  if (t === 'fence') { const m = fenceRun(-1, 0, 1, 0); m.rotation.y = r ? Math.PI / 2 : 0; return { mesh: m }; }
-  if (t === 'gate') {
-    const m = new THREE.Group(), posts = fenceRun(-1, 0, 1, 0);
-    posts.children.slice(1, -3).forEach(c => (c.visible = false)); posts.children.slice(-2).forEach(c => (c.visible = false)); posts.children[posts.children.length - 3].visible = true;
-    const leaf = makeGate(2); leaf.position.x = -1;
-    m.add(posts, leaf); m.rotation.y = r ? Math.PI / 2 : 0;
-    return { mesh: m, extra: { leaf } };
-  }
+  if (t === 'fence') { const m = makeFence(); m.rotation.y = r ? Math.PI / 2 : 0; return { mesh: m }; }
+  if (t === 'gate') { const g = makeGateItem(); g.group.rotation.y = r ? Math.PI / 2 : 0; return { mesh: g.group, extra: { leaf: g.leaf } }; }
   if (t === 'coop') {
     const m = makeCoop(), eggs: THREE.Mesh[] = [];
-    for (let i = 0; i < 6; i++) { const e = makeEgg(); e.position.set(-0.75 + i * 0.3, 0.14, 1.55 + (i % 2) * 0.22); e.visible = false; m.add(e); eggs.push(e); }
-    const nest = new THREE.Mesh(new THREE.BoxGeometry(2, 0.08, 0.7), mat(0xe0c060)); nest.position.set(0, 0.04, 1.62); nest.receiveShadow = true; m.add(nest);
+    for (let i = 0; i < 6; i++) { const e = makeEgg(); e.position.set(-0.75 + i * 0.3, 0.14, 1.72 + (i % 2) * 0.2); e.visible = false; m.add(e); eggs.push(e); }
+    const nest = new THREE.Mesh(new THREE.BoxGeometry(2, 0.08, 0.7), mat(0xe0c060)); nest.position.set(0, 0.04, 1.8); nest.receiveShadow = true; m.add(nest);
     return { mesh: m, extra: { eggs } };
   }
-  if (t === 'patch') { const p = makePatch(); return { mesh: p.group, extra: { plants: p.plants } }; }
+  if (t === 'patch') { const p = makePatch(); return { mesh: p.group, extra: p }; }
   const m = makeDecor(t); m.rotation.y = r * Math.PI / 2;
   return { mesh: m };
 }
@@ -209,12 +222,7 @@ function addItem(t: string, x: number, z: number, r: number, state: Partial<Item
 }
 function refreshItem(it: Item) {
   if (it.t === 'coop') it.extra.eggs.forEach((e: THREE.Mesh, i: number) => (e.visible = i < it.eggs));
-  if (it.t === 'patch') it.extra.plants.forEach((p: THREE.Mesh, i: number) => {
-    const ripe = it.grow >= 1;
-    p.visible = it.grow >= 0 && (!ripe || i < Math.ceil(it.servings * 9 / 8));
-    p.scale.setScalar(ripe ? 1 : 0.25 + clamp(it.grow, 0, 1) * 0.6);
-    (p.material as THREE.MeshLambertMaterial).color.setHex(ripe ? 0xe2b84a : 0x7fb04a);
-  });
+  if (it.t === 'patch') it.extra.set(it.grow, it.servings);
 }
 function snap(t: string, r: number, x: number, z: number) {
   const odd = (v: number) => 2 * Math.round((v - 1) / 2) + 1, even = (v: number) => 2 * Math.round(v / 2);
@@ -255,8 +263,8 @@ function navBuild() {
   for (let j = 0; j < NAV_W; j++) for (let i = 0; i < NAV_W; i++) if (Math.hypot(i - NAV_N + 0.5, j - NAV_N + 0.5) > WORLD_R) B[j * NAV_W + i] = 1;
   for (const o of obstacles) if (o.alive) fill(o.x, o.z, (cx, cz) => dist(cx, cz, o.x, o.z) < o.r + 0.25, o.r + 1);
   for (const i of items) {
-    if (i.t === 'coop') fill(i.x, i.z, (cx, cz) => Math.abs(cx - i.x) < 1.9 && Math.abs(cz - i.z) < 1.4, 3);
-    else if (i.t === 'hay' || i.t === 'scarecrow') fill(i.x, i.z, (cx, cz) => dist(cx, cz, i.x, i.z) < 0.6, 1);
+    if (i.t === 'coop') fill(i.x, i.z, (cx, cz) => Math.abs(cx - i.x) < 1.8 && Math.abs(cz - i.z + 0.15) < 1.9, 3);
+    else if (DEFS[i.t].solid) fill(i.x, i.z, (cx, cz) => dist(cx, cz, i.x, i.z) < DEFS[i.t].rad * 0.8, 2);
     else if (i.t === 'fence' || (i.t === 'gate' && !i.open)) {
       if (i.r) for (const cz of [i.z - 1, i.z]) navV[(cz + NAV_N) * NAV_W + i.x + NAV_N] = 1;
       else for (const cx of [i.x - 1, i.x]) navH[(i.z + NAV_N) * NAV_W + cx + NAV_N] = 1;
@@ -321,9 +329,9 @@ function collide(p: Body, r: number, fences: boolean) {
   });
   for (const i of items) {
     if (i.t === 'coop') {
-      const hx = 1.6 + r, hz = 1.1 + r, dx = p.x - i.x, dz = p.z - i.z;
-      if (Math.abs(dx) < hx && Math.abs(dz) < hz) { if (hx - Math.abs(dx) < hz - Math.abs(dz)) p.x = i.x + Math.sign(dx || 1) * hx; else p.z = i.z + Math.sign(dz || 1) * hz; }
-    } else if (i.t === 'hay' || i.t === 'scarecrow') {
+      const hx = 1.4 + r, hz = 1.5 + r, dx = p.x - i.x, dz = p.z - (i.z - 0.15); // the cottage is about 2.8 by 3
+      if (Math.abs(dx) < hx && Math.abs(dz) < hz) { if (hx - Math.abs(dx) < hz - Math.abs(dz)) p.x = i.x + Math.sign(dx || 1) * hx; else p.z = i.z - 0.15 + Math.sign(dz || 1) * hz; }
+    } else if (DEFS[i.t].solid) {
       const d = dist(p.x, p.z, i.x, i.z), min = DEFS[i.t].rad * 0.8 + r;
       if (d < min && d > 1e-5) { const k = (min - d) / d; p.x += (p.x - i.x) * k; p.z += (p.z - i.z) * k; }
     } else if (fences && (i.t === 'fence' || (i.t === 'gate' && !i.open))) { if (Math.abs(p.x - i.x) < 2 && Math.abs(p.z - i.z) < 2) pushSeg(p, r + 0.1, segOf(i)); }
@@ -458,7 +466,7 @@ function findInteract(x: number, z: number, rad: number, click: boolean): Intera
     else if (i.t === 'patch' && i.grow < 0) consider({ kind: 'patch', ref: i, label: 'Sow feed', x: i.x, z: i.z, reach: 2.1 }, 1.1);
     else if (i.t === 'gate') consider({ kind: 'gate', ref: i, label: i.open ? 'Close gate' : 'Open gate', x: i.x, z: i.z, reach: 2 }, 0.9, -0.3);
   }
-  nearObstacles(x, z, o => consider({ kind: 'obst', ref: o, label: o.bush ? 'Clear bush' : 'Chop tree', x: o.x, z: o.z, reach: o.r + 1.1 }, o.r, 0.3));
+  nearObstacles(x, z, o => consider({ kind: 'obst', ref: o, label: o.rock ? 'Break rock' : o.bush ? 'Clear bush' : 'Chop tree', x: o.x, z: o.z, reach: o.r + 1.1 }, o.r, 0.3));
   if (click) for (const h of hens) if (h.state === 'out') consider({ kind: 'hen', ref: h, label: h.name, x: h.x, z: h.z, reach: 30 }, 0.5, -0.2);
   return best;
 }
@@ -694,11 +702,11 @@ function updateFarmer(dt: number) {
   let dvx = 0, dvz = 0;
   if (ix || iz) { const l = Math.hypot(ix, iz); dvx = (ix / l) * SPEED; dvz = (iz / l) * SPEED; f.target = null; f.pending = null; f.act = null; marker.visible = false; }
   else if (f.act) {
-    const o = f.act.o, need = o.bush ? 1.1 : 2.8;
+    const o = f.act.o, need = o.bush ? 1.1 : o.rock ? 1.8 : 2.8;
     f.face = Math.atan2(o.x - f.x, o.z - f.z);
     f.act.t += dt; o.shake += dt;
-    if (((f.act.t * 4) | 0) !== (((f.act.t - dt) * 4) | 0)) { sfx.dig(); puff(o.x, 0.8, o.z, o.bush ? 0x7fa650 : 0x7a5a3c, 2, 2); }
-    if (o.bush) setBush(veg.bm, o, 1 - (f.act.t / need) * 0.3); else setTree(o, 1, Math.sin(f.act.t * 16) * 0.04 + (f.act.t / need) * 0.12);
+    if (((f.act.t * 4) | 0) !== (((f.act.t - dt) * 4) | 0)) { sfx.dig(); puff(o.x, 0.8, o.z, o.rock ? 0x9aa3a8 : o.bush ? 0x7fbf4a : 0xb0623a, 2, 2); }
+    if (o.bush || o.rock) setObs(o, 1 - (f.act.t / need) * 0.3); else setObs(o, 1, Math.sin(f.act.t * 16) * 0.04 + (f.act.t / need) * 0.12);
     if (f.act.t >= need) { clearObstacle(o); f.act = null; queueSave(); }
   } else if (f.target) {
     const p = f.pending, dx = f.target.x - f.x, dz = f.target.z - f.z, l = Math.hypot(dx, dz);
@@ -712,14 +720,11 @@ function updateFarmer(dt: number) {
   collide(f, 0.4, false);
   const sp = Math.hypot(f.vx, f.vz);
   if (sp > 0.4) f.face = Math.atan2(f.vx, f.vz);
-  f.anim += dt * (f.act ? 14 : 3 + sp * 1.9);
-  const m = farmerModel, sw = Math.min(1, sp / 3) * 0.7;
+  const m = farmerModel;
   f.hop = lerp(f.hop, sp > 0.5 && nearFence(f.x, f.z) ? 0.55 : 0, Math.min(1, dt * 12));
-  m.group.position.set(f.x, Math.abs(Math.sin(f.anim)) * 0.04 * sw + f.hop, f.z);
+  m.group.position.set(f.x, f.hop, f.z);
   turn(m.group, f.face, dt * 14);
-  m.legs[0].rotation.x = Math.sin(f.anim) * sw; m.legs[1].rotation.x = -Math.sin(f.anim) * sw;
-  m.arms[0].rotation.x = f.act ? -1.3 + Math.sin(f.anim) * 0.7 : -Math.sin(f.anim) * sw;
-  m.arms[1].rotation.x = f.act ? -1.3 + Math.sin(f.anim) * 0.7 : Math.sin(f.anim) * sw;
+  m.update(dt, sp, !!f.act);
 }
 
 function updateDog(dt: number) {
@@ -876,7 +881,7 @@ function updateHens(dt: number) {
     const em = h.spooked && h.panic < 0.3 && ph === 'day' ? 'spooked' : h.lost && ph !== 'day' && !sleeping ? 'lost' : sleeping ? 'sleep' : h.eatT > 0 ? 'eat' : ph === 'day' && h.fed < 0.35 && G.clock > DAY * 0.45 && !h.rooster ? 'hungry' : '';
     if (em !== h.emoteKind) { h.emoteKind = em; h.emote.visible = !!em; if (em) { h.emote.material.map = emoteTexture(em); h.emote.material.needsUpdate = true; } }
     if (em) h.emote.position.y = (1.45 + Math.sin(h.anim * 0.6) * 0.06) / g.scale.y;
-    h.model.head.rotation.x = sleeping ? 0.9 : h.eatT > 0 ? 0.6 + Math.sin(h.anim * 3) * 0.5 : sp < 0.2 && calm ? Math.max(0, Math.sin(h.anim * 0.9)) * 1.1 : Math.sin(h.anim) * 0.12;
+    h.model.head.rotation.x = 0.4 * (sleeping ? 0.4 : h.eatT > 0 ? 0.6 + Math.sin(h.anim * 3) * 0.5 : sp < 0.2 && calm ? Math.max(0, Math.sin(h.anim * 0.9)) * 1.1 : Math.sin(h.anim) * 0.12);
   }
 }
 
@@ -1180,7 +1185,7 @@ function step(dt: number) {
   camTarget.x += (farmer.x - camTarget.x) * ck; camTarget.z += (farmer.z - 1 - camTarget.z) * ck;
   camera.position.copy(camTarget).addScaledVector(CAM_OFF, zoom);
   camera.lookAt(camTarget);
-  updateSky(dt); updateHud();
+  fadeTrees(dt); updateSky(dt); updateHud();
 }
 let last = performance.now();
 function frame(now: number) {
@@ -1191,6 +1196,7 @@ function frame(now: number) {
 }
 if (saved && saved.v === 1) { try { loadFarm(saved); } catch { saved = null; newFarm(); } } else { saved = null; newFarm(); }
 $('ovBtn').textContent = saved ? `Continue, day ${G.day}` : 'Start the farm';
+($('ovBtn') as HTMLButtonElement).disabled = false;
 $('ovNew').hidden = !saved;
-(window as any).__hs = { screen: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [((v.x + 1) / 2) * window.innerWidth, ((1 - v.y) / 2) * window.innerHeight]; }, G, farmer, dog, hawk, fox, snake, hens, items, obstacles, step, whistle, addItem, buyBird, doInteract, findInteract, toggleBuild, selectBuild, placeAt, save, DAY, DUSK, CYCLE };
+(window as any).__hs = { renderer, scene, screen: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [((v.x + 1) / 2) * window.innerWidth, ((1 - v.y) / 2) * window.innerHeight]; }, G, farmer, dog, hawk, fox, snake, hens, items, obstacles, step, whistle, addItem, buyBird, doInteract, findInteract, toggleBuild, selectBuild, placeAt, save, DAY, DUSK, CYCLE };
 requestAnimationFrame(frame);
