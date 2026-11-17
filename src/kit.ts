@@ -38,13 +38,14 @@ function buildGeometry(buf: ArrayBuffer, e: Entry) {
   return g;
 }
 
-/** Fetches every pack. onProgress gets 0..1. Rejects if any file fails to load. */
-export async function loadKit(base: string, onProgress?: (f: number) => void) {
+/** Fetches every pack (plus extraPacks, used by the library page). onProgress gets 0..1. Rejects if any file fails to load. */
+export async function loadKit(base: string, onProgress?: (f: number) => void, extraPacks: string[] = []) {
   let done = 0;
-  const total = PACKS.length + 3;
+  const packs = [...PACKS, ...extraPacks];
+  const total = packs.length + 3;
   const tick = () => onProgress?.(++done / total);
   const texLoader = new THREE.TextureLoader();
-  await Promise.all(PACKS.map(async pack => {
+  await Promise.all(packs.map(async pack => {
     const [index, buf] = await Promise.all([
       fetch(base + pack + '.json').then(r => (r.ok ? r.json() : Promise.reject(new Error(pack)))),
       fetchBinary(base + pack + '.bin'),
@@ -74,6 +75,9 @@ export async function loadKit(base: string, onProgress?: (f: number) => void) {
 }
 
 export const has = (name: string) => geos.has(name);
+/** Names of every loaded model in a pack, in pack order. */
+export const modelsIn = (pack: string) => [...packOf].filter(([, p]) => p === pack).map(([n]) => n);
+export const triangles = (name: string) => info.get(name)!.i / 3;
 export const geo = (name: string) => { const g = geos.get(name); if (!g) throw new Error('missing model ' + name); return g; };
 export const box = (name: string) => info.get(name)!.box;
 export const pivot = (name: string) => info.get(name)!.t || [0, 0, 0];

@@ -21,6 +21,7 @@ History, design decisions and open questions from the first build session: `docs
 - `src/audio.ts`: synthesised sounds plus recorded samples and music from `assets/audio`.
 - `src/page-farm.html`, `src/page.html`: page markup and CSS for Henstead and Come By. The build appends the bundled script.
 - `src/game.ts`: Come By.
+- `src/library.ts`, `src/page-library.html`: the design library at `/library/` (look-dev diorama, every model, proposed pieces, UI kit). Not part of the game. It also loads the `x_*` packs, built from `tools/models-library.json` with the same packer; the game never loads them.
 - `build.mjs` (exports `buildAll`), `dev.mjs`: build and dev server.
 - `tools/pack_models.py`, `tools/models.json`, `tools/recolor.py`: pack chosen KayKit glTF models into `assets/models` (one file per atlas). `recolor.py` repaints KayKit's dog as a border collie.
 

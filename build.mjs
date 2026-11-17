@@ -1,5 +1,6 @@
 // Bundles each game into one HTML page. Output in dist/:
 //   index.html, come-by/index.html  full pages (GitHub Pages, any static host)
+//   library/index.html              the model and UI library (design reference, not a game)
 //   henstead.html, come-by.html     the same pages without a document wrapper (claude.ai artifacts)
 import { build } from 'esbuild';
 import { readFileSync, writeFileSync, mkdirSync, cpSync, readdirSync } from 'node:fs';
@@ -27,6 +28,7 @@ ${page}</body>
 const games = [
   { entry: 'src/henstead.ts', page: 'src/page-farm.html', fragment: 'dist/henstead.html', full: 'dist/index.html' },
   { entry: 'src/game.ts', page: 'src/page.html', fragment: 'dist/come-by.html', full: 'dist/come-by/index.html' },
+  { entry: 'src/library.ts', page: 'src/page-library.html', fragment: 'dist/library.html', full: 'dist/library/index.html' },
 ];
 
 /**

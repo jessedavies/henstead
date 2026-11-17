@@ -1,0 +1,46 @@
+{
+ "x_forest": {
+  "dir": "{KAYKIT}/kaykit-forest/KayKit_Forest_Nature_Pack_1.0_FREE/Assets/gltf",
+  "models": ["Tree_3_A_Color1", "Tree_Bare_1_A_Color1", "Tree_Bare_2_B_Color1", "Bush_1_E_Color1", "Bush_2_E_Color1", "Bush_4_E_Color1", "Rock_2_A_Color1", "Rock_3_C_Color1", "Rock_3_J_Color1"]
+ },
+ "x_halloween": {
+  "dir": "{KAYKIT}/halloween-bits/KayKit_HalloweenBits_1.0_FREE/Assets/gltf",
+  "models": ["tree_pine_orange_medium", "tree_pine_yellow_medium", "tree_pine_orange_small", "path_A", "path_C", "lantern_hanging", "post", "pumpkin_yellow_small", "candle_triple"]
+ },
+ "x_village": {
+  "dir": "{KAYKIT}/kaykit-medieval-hexagon/KayKit_Medieval_Hexagon_Pack_1.0_FREE/Assets/gltf",
+  "models": ["buildings/red/building_windmill_red", "buildings/red/building_watermill_red", "buildings/red/building_home_B_red", "buildings/red/building_market_red", "decoration/props/tent", "decoration/props/bucket_water", "decoration/props/bucket_empty", "decoration/props/crate_open", "decoration/props/ladder", "decoration/props/flag_yellow", "decoration/props/resource_lumber", "decoration/nature/cloud_big", "decoration/nature/cloud_small", "decoration/nature/waterlily_A", "decoration/nature/waterplant_B", "decoration/nature/tree_single_A_cut", "decoration/nature/trees_A_cut"]
+ },
+ "x_bag1": {
+  "dir": "{KAYKIT}/mixed-bag-1/KayKit_Mixed_Bag_1_FREE/Assets/gltf",
+  "models": ["idol_A", "idol_B", "instantcamera", "umbrella_pink", "puzzlecube_complete", "circus_tent", "rollerskate_A", "mining_helmet", "woodstove"]
+ },
+ "x_bag2": {
+  "dir": "{KAYKIT}/mixed-bag-2/KayKit_Mixed_Bag_2_FREE/Assets/gltf",
+  "models": ["autumn_wreath", "sled", "cat_headphones_A", "pickle_jar", "book_mimic"]
+ },
+ "x_tools": {
+  "dir": "{KAYKIT}/rpg-tools-bits/KayKit_RPGToolsBits_1.0_FREE/Assets/gltf",
+  "models": ["journal_open", "journal_closed", "magnifying_glass", "map_rolled", "compass_base", "shovel", "trowel", "bucket_metal", "lantern", "rope_bundle_A"]
+ },
+ "x_resource": {
+  "dir": "{KAYKIT}/resource-bits/KayKit_ResourceBits_1.0_FREE/Assets/gltf",
+  "models": ["Gold_Nugget_Small", "Silver_Nugget_Small", "Copper_Nugget_Small", "Stone_Chunks_Small", "Textiles_A", "Wood_Log_A", "Pallet_Wood_Covered_A"]
+ },
+ "x_holiday": {
+  "dir": "{KAYKIT}/holiday-bits/KayKit_Holiday_Bits_1.0_FREE/Assets/gltf",
+  "models": ["present_A_red", "present_sphere_A_red", "wreath", "lantern_mini", "bell", "milk", "snowman_A", "cookie", "hot_chocolate"]
+ },
+ "x_board": {
+  "dir": "{KAYKIT}/board-game-bits/KayKit_BoardGameBits_1.0_FREE/Assets/gltf",
+  "models": ["coin_gold", "coin_copper", "hourglass", "D6_A"]
+ },
+ "x_furniture": {
+  "dir": "{KAYKIT}/furniture-bits/KayKit_Furniture_Bits_1.0_FREE/Assets/gltf",
+  "models": ["rug_oval_A", "pillow_A", "cactus_small_A", "lamp_standing"]
+ },
+ "x_kitchen": {
+  "dir": "{KAYKIT}/restaurant-bits/KayKit_Restaurant_Bits_1.0_FREE/Assets/gltf",
+  "models": ["crate_potatoes", "crate_tomatoes", "bowl", "jar_A_small", "food_ingredient_carrot", "food_ingredient_tomato"]
+ }
+}
