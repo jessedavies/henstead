@@ -52,7 +52,10 @@ const canvas = $('c') as HTMLCanvasElement;
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: window.devicePixelRatio < 2 });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// ACES keeps the bright sun from clipping the soft gradients baked into the KayKit atlases.
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xcfe6e4);
 scene.fog = new THREE.Fog(0xcfe6e4, 70, 120);
@@ -60,9 +63,9 @@ const camera = new THREE.PerspectiveCamera(28, 1, 1, 220);
 const camTarget = new THREE.Vector3(0, 0, -1);
 const CAM_OFF = new THREE.Vector3(0, 25, 27);
 let zoom = 0.85;
-const hemi = new THREE.HemisphereLight(0xdff0ff, 0x8a9a6a, 1.0);
+const hemi = new THREE.HemisphereLight(0xd3ebff, 0x8a8f52, 1.35);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff4e0, 2.4);
+const sun = new THREE.DirectionalLight(0xffd9a3, 3.1);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 34, bottom: -34, near: 1, far: 130 });
@@ -103,8 +106,25 @@ const edgeDist = (x: number, z: number) => Math.hypot(x, z * 1.05) + (vnoise(x *
   ground.receiveShadow = true; scene.add(ground);
 }
 const tm4 = new THREE.Matrix4(), tq = new THREE.Quaternion(), tv = new THREE.Vector3(), ts = new THREE.Vector3();
-// Trees between the camera and the farmer shrink so they never hide the farm.
-type Standing = { im: THREE.InstancedMesh; i: number; x: number; z: number; k: number; rot: number; f: number; o?: Obstacle };
+// Trees that hide the farmer, the dog or a hen dither out (see fadeTrees). They never change size.
+// h and r are the tree's height and crown radius in world units; f is its current opacity.
+type Standing = { im: THREE.InstancedMesh; i: number; x: number; z: number; k: number; rot: number; f: number; h: number; r: number; o?: Obstacle };
+const WHITE = new THREE.Color(1, 1, 1);
+const fadeMats = new Map<THREE.Material, THREE.Material>();
+/** The pack material, but reading instanceColor.r as an opacity and dithering away pixels below it. */
+function fadeMaterial(base: THREE.Material) {
+  let m = fadeMats.get(base);
+  if (m) return m;
+  m = base.clone();
+  m.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vFade;')
+      .replace('#include <color_vertex>', 'vFade = 1.0;\n' + THREE.ShaderChunk.color_vertex.replace('vColor.xyz *= instanceColor.xyz;', 'vFade = instanceColor.r;'));
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vFade;')
+      .replace('void main() {', 'void main() {\n  if (vFade < 0.999 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) > vFade) discard;');
+  };
+  fadeMats.set(base, m);
+  return m;
+}
 const standing: Standing[] = [];
 // The random calls below keep the same order as earlier versions, so saved farms clear the same trees and bushes.
 (() => {
@@ -130,12 +150,17 @@ const standing: Standing[] = [];
   const groups = new Map<string, Place[]>();
   for (const p of [...trees, ...bushes, ...rocks]) { const k = key(p); if (!groups.has(k)) groups.set(k, []); groups.get(k)!.push(p); }
   const imOf = new Map<Place, THREE.InstancedMesh>(), slot = new Map<Place, number>(), all: THREE.InstancedMesh[] = [];
-  for (const [k, list] of groups) { const im = kit.instanced(k.split('|')[0], list.length); scene.add(im); all.push(im); list.forEach((p, i) => { slot.set(p, i); imOf.set(p, im); }); }
+  for (const [k, list] of groups) {
+    const im = kit.instanced(k.split('|')[0], list.length); scene.add(im); all.push(im);
+    list.forEach((p, i) => { slot.set(p, i); imOf.set(p, im); im.setColorAt(i, WHITE); });
+    im.material = fadeMaterial(im.material as THREE.Material);
+  }
   const put = (p: Place, k: number, rot: number) => { tq.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, rot); tm4.compose(tv.set(p.x, 0, p.z), tq, ts.setScalar(k)); imOf.get(p)!.setMatrixAt(slot.get(p)!, tm4); };
   trees.forEach((t, i) => {
     const k = t.s * 0.82;
     put(t, k, rots[i]);
-    const st: Standing = { im: imOf.get(t)!, i: slot.get(t)!, x: t.x, z: t.z, k, rot: rots[i], f: 1 };
+    const b = kit.box(t.model!);
+    const st: Standing = { im: imOf.get(t)!, i: slot.get(t)!, x: t.x, z: t.z, k, rot: rots[i], f: 1, h: b[4] * k, r: (Math.max(b[3] - b[0], b[5] - b[2]) / 2) * k };
     standing.push(st);
     if (Math.hypot(t.x, t.z) < 37) { const o: Obstacle = { id: 0, x: t.x, z: t.z, r: 0.55 * t.s, alive: true, bush: false, rock: false, im: st.im, i: st.i, k, rot: rots[i], shake: 0 }; addObstacle(o); st.o = o; }
   });
@@ -165,15 +190,35 @@ const standing: Standing[] = [];
   }
   scene.add(bloom);
 }
+const subjects: Body[] = [], tc = new THREE.Color(), pv = new THREE.Vector3();
+const subjPts: number[] = []; // x, y (screen space, -1..1) and distance to the camera, per point
+/**
+ * Fades a tree when it covers the farmer, the dog or a hen on screen: each tree is a box in screen space
+ * (trunk base to crown top, crown width), and only trees nearer the camera than the subject count.
+ */
 function fadeTrees(dt: number) {
+  subjects.length = 0; subjects.push(farmer, dog); for (const h of hens) subjects.push(h);
+  subjPts.length = 0;
+  for (const s of subjects) for (const sy of [0.3, 1.3]) {
+    pv.set(s.x, sy, s.z); const d = pv.distanceTo(camera.position); pv.project(camera);
+    if (Math.abs(pv.x) < 1.2 && Math.abs(pv.y) < 1.2) subjPts.push(pv.x, pv.y, d);
+  }
   for (const t of standing) {
-    const dx = t.x - camTarget.x, dz = t.z - camTarget.z;
-    const want = dz > 1 && dz < 16 && Math.abs(dx) < 5 + dz * 0.4 ? 0.1 : 1;
+    let want = 1;
+    if (subjPts.length && t.z > camTarget.z - 6 && t.z < camera.position.z - 2 && Math.abs(t.x - camTarget.x) < 30 && !(t.o && !t.o.alive)) {
+      const d = Math.hypot(t.x - camera.position.x, t.h * 0.6 - camera.position.y, t.z - camera.position.z) + t.r * 0.5;
+      pv.set(t.x, 0, t.z).project(camera); const x0 = pv.x, y0 = pv.y;
+      pv.set(t.x, t.h, t.z).project(camera); const y1 = pv.y;
+      pv.set(t.x + t.r, t.h * 0.6, t.z).project(camera); const rx = Math.abs(pv.x - x0) * 1.05;
+      for (let i = 0; i < subjPts.length; i += 3) {
+        if (subjPts[i + 2] < d) continue; // the subject is in front of this tree
+        if (Math.abs(subjPts[i] - x0) < rx && subjPts[i + 1] > y0 && subjPts[i + 1] < y1) { want = 0.2; break; }
+      }
+    }
     if (Math.abs(want - t.f) < 0.005) continue;
-    t.f += (want - t.f) * Math.min(1, dt * 5);
-    if (t.o && (!t.o.alive || t.o.shake > 0)) continue;
-    tq.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, t.rot); tm4.compose(tv.set(t.x, 0, t.z), tq, ts.setScalar(t.k * t.f));
-    t.im.setMatrixAt(t.i, tm4); t.im.instanceMatrix.needsUpdate = true;
+    t.f += (want - t.f) * Math.min(1, dt * 6);
+    if (Math.abs(want - t.f) < 0.005) t.f = want;
+    t.im.setColorAt(t.i, tc.setRGB(t.f, 1, 1)); t.im.instanceColor!.needsUpdate = true;
   }
 }
 /** k: size factor (1 = full), lean: tilt while being chopped. */
@@ -1009,13 +1054,15 @@ function updateSky(dt: number) {
   G.sky += (want - G.sky) * Math.min(1, dt * (want < G.sky ? 0.5 : 2));
   const k = G.sky;
   setAmbience(1 - clamp((k - 0.4) / 0.5, 0, 1));
-  tri(sun.color, 0xfff4e0, 0xffb27a, 0x7080c0, k);
-  sun.intensity = k < 0.6 ? lerp(2.1, 1.9, k / 0.6) : lerp(1.9, 0.6, (k - 0.6) / 0.4);
-  tri(hemi.color, 0xdff0ff, 0xffd8b8, 0x3a4a7a, k); hemi.intensity = lerp(1.3, 0.7, k);
+  // A warm, low sun (long soft shadows) by day; the same dusk and night colours as before.
+  // Night is lifted compared with the untoned version: ACES crushes low light, and night should stay cosy.
+  tri(sun.color, 0xffd9a3, 0xffb07a, 0x8090d0, k);
+  sun.intensity = k < 0.6 ? lerp(3.1, 2.7, k / 0.6) : lerp(2.7, 1.3, (k - 0.6) / 0.4);
+  tri(hemi.color, 0xd3ebff, 0xffe4cf, 0x5a6aa8, k); hemi.intensity = lerp(1.35, 1.15, k);
   tri(cA, 0xcfe6e4, 0xf0b890, 0x1f2a48, k);
   (scene.background as THREE.Color).copy(cA); scene.fog!.color.copy(cA);
   sun.target.position.copy(camTarget);
-  sun.position.set(camTarget.x + lerp(-14, -34, k), lerp(34, 13, k), camTarget.z + lerp(16, 8, k));
+  sun.position.set(camTarget.x + lerp(-22, -34, k), lerp(24, 13, k), camTarget.z + lerp(13, 8, k));
   for (const i of items) if (i.t === 'lantern') { const g = i.mesh.getObjectByName('glow') as THREE.Mesh; (g.material as THREE.MeshBasicMaterial).opacity = clamp((k - 0.3) * 0.5, 0, 0.3); }
 }
 
@@ -1198,5 +1245,5 @@ if (saved && saved.v === 1) { try { loadFarm(saved); } catch { saved = null; new
 $('ovBtn').textContent = saved ? `Continue, day ${G.day}` : 'Start the farm';
 ($('ovBtn') as HTMLButtonElement).disabled = false;
 $('ovNew').hidden = !saved;
-(window as any).__hs = { renderer, scene, screen: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [((v.x + 1) / 2) * window.innerWidth, ((1 - v.y) / 2) * window.innerHeight]; }, G, farmer, dog, hawk, fox, snake, hens, items, obstacles, step, whistle, addItem, buyBird, doInteract, findInteract, toggleBuild, selectBuild, placeAt, save, DAY, DUSK, CYCLE };
+(window as any).__hs = { renderer, scene, screen: (x: number, y: number, z: number) => { const v = new THREE.Vector3(x, y, z).project(camera); return [((v.x + 1) / 2) * window.innerWidth, ((1 - v.y) / 2) * window.innerHeight]; }, G, farmer, dog, hawk, fox, snake, hens, items, obstacles, standing, step, whistle, addItem, buyBird, doInteract, findInteract, toggleBuild, selectBuild, placeAt, save, DAY, DUSK, CYCLE };
 requestAnimationFrame(frame);

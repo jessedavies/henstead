@@ -34,7 +34,7 @@ History, design decisions and open questions from the first build session: `docs
 - **The claude.ai artifact host serves no .bin or .glb files**, hence the base64 `.b64.txt` copies the production build writes. Pages serves the binaries directly.
 
 ## Debugging
-`window.__hs` exposes game state and helpers (`G`, `farmer`, `dog`, `hens`, `items`, `obstacles`, `step(dt)`, `whistle`, `buyBird`, `placeAt`, `selectBuild`, `toggleBuild`, `save`, `renderer`, `scene`, `screen(x,y,z)`). Example: `for (let i = 0; i < 300; i++) __hs.step(1/30)` advances ten seconds.
+`window.__hs` exposes game state and helpers (`G`, `farmer`, `dog`, `hens`, `items`, `obstacles`, `standing` (trees, with fade `f`), `step(dt)`, `whistle`, `buyBird`, `placeAt`, `selectBuild`, `toggleBuild`, `save`, `renderer`, `scene`, `screen(x,y,z)`). Example: `for (let i = 0; i < 300; i++) __hs.step(1/30)` advances ten seconds.
 
 ## Assets
 - KayKit models by Kay Lousberg, CC0. All 27 free packs (original zips) are on the `kaykit-packs` branch of this repo. To use more models: unzip the packs into a folder, add names to `tools/models.json`, run `KAYKIT_DIR=that/folder python3 tools/pack_models.py tools/models.json assets/models`.
